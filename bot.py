@@ -527,7 +527,10 @@ def run_bot():
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND,admin_text),group=0)
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND,text_handler),group=1)
     print("Telegram bot running...")
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    application.run_polling(
+    allowed_updates=Update.ALL_TYPES,
+    stop_signals=None
+)
 
 if __name__=="__main__":
     if not TOKEN: raise RuntimeError("TOKEN environment variable missing")
