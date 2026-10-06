@@ -95,19 +95,32 @@ def join_keyboard():
     ])
 
 async def joined_all(bot, uid):
+    for ch in CHANNELS:
+        try:
+            m = await bot.get_chat_member(ch, uid)
+            if m.status in (ChatMemberStatus.LEFT, ChatMemberStatus.KICKED):
+                return False
+        except Exception:
+            return False
     return True
-
 
 async def require_access(update, context):
     uid = update.effective_user.id
     if is_blocked(uid):
-        if update.callback_query:
-            await update.callback_query.answer("আপনাকে block করা হয়েছে।", show_alert=True)
-        elif update.message:
-            await update.message.reply_text("🚫 আপনার account blocked.")
         return False
-    return True
-
+    if await joined_all(context.bot, uid):
+        return True
+    text = ("🔐 <b>প্রথমে দুইটি channel join করুন</b>\n\n"
+            "1️⃣ @SantoBhaiOfc\n2️⃣ @Premium1App\n\n"
+            "Join করার পর নিচের Verify চাপুন।")
+    if update.callback_query:
+        await update.callback_query.answer()
+        await update.callback_query.edit_message_text(text, parse_mode="HTML",
+                                                       reply_markup=join_keyboard())
+    else:
+        await update.message.reply_text(text, parse_mode="HTML",
+                                        reply_markup=join_keyboard())
+    return False
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     add_user(update.effective_user)
@@ -119,10 +132,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def verify(update, context):
     add_user(update.effective_user)
-    q = update.callback_query
-    await q.answer("Channel Join system OFF ✅")
-    await q.edit_message_text("✅ Channel Join system disabled.\n\nService নির্বাচন করুন:", reply_markup=service_keyboard())
-
+    q=update.callback_query
+    if await joined_all(context.bot, update.effective_user.id):
+        await q.answer("Verified ✅")
+        await q.edit_message_text("✅ Verification successful!\n\nService নির্বাচন করুন:",
+                                  reply_markup=service_keyboard())
+    else:
+        await q.answer("আগে দুইটি channel join করুন।", show_alert=True)
 
 def clear_state(context):
     context.user_data.clear()
@@ -274,7 +290,7 @@ async def build_apk(html_path, name, logo_path):
     build = WORK / f"apkbuild_{os.getpid()}_{abs(hash((str(html_path), name)))}"
     if build.exists():
         shutil.rmtree(build)
-    (build/f"app/src/main/java/{application_id.replace('.', '/')}").mkdir(parents=True)
+    (build/"app/src/main/java/com/example/htmlapk").mkdir(parents=True)
     (build/"app/src/main/assets").mkdir(parents=True)
     (build/"app/src/main/res/drawable").mkdir(parents=True)
     (build/"app/src/main/res/mipmap-hdpi").mkdir(parents=True)
@@ -368,10 +384,8 @@ async def build_apk(html_path, name, logo_path):
         </resources>
     """.strip()+"\n")
 
-    java_dir = build/f"app/src/main/java/{application_id.replace(".", "/")}"
-    java_dir.mkdir(parents=True, exist_ok=True)
-    (java_dir/"MainActivity.java").write_text(f"""
-        package {application_id};
+    (build/"app/src/main/java/com/example/htmlapk/MainActivity.java").write_text(r"""
+        package com.example.htmlapk;
 
         import android.app.Activity;
         import android.os.Bundle;
@@ -379,8 +393,8 @@ async def build_apk(html_path, name, logo_path):
         import android.webkit.WebView;
         import android.webkit.WebViewClient;
 
-        public class MainActivity extends Activity {{
-            @Override public void onCreate(Bundle b) {{
+        public class MainActivity extends Activity {
+            @Override public void onCreate(Bundle b) {
                 super.onCreate(b);
                 WebView w = new WebView(this);
                 w.setWebViewClient(new WebViewClient());
@@ -391,8 +405,8 @@ async def build_apk(html_path, name, logo_path):
                 s.setAllowContentAccess(true);
                 w.loadUrl("file:///android_asset/index.html");
                 setContentView(w);
-            }}
-        }}
+            }
+        }
     """.strip()+"\n")
 
     gradle = "/opt/gradle/bin/gradle"
