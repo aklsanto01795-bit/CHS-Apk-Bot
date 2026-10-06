@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: html-apk-telegram-bot
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: TOKEN
+        sync: false
+      - key: ADMIN_ID
+        sync: false
+      - key: DB_PATH
+        value: /app/work/bot.db
+    disk:
+      name: bot-data
+      mountPath: /app/work
+      sizeGB: 5
